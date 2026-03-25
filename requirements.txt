@@ -2,3 +2,5 @@ moviepy==1.0.3
 numpy
 Pillow
 elevenlabs
+openai-whisper
+playwright
