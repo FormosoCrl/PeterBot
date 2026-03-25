@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import random
 from datetime import datetime, timedelta
 from brain import generate_script
@@ -9,85 +10,103 @@ from video_engine import create_split_screen_video
 from subtitle_engine import transcribe_audio, add_viral_subtitles
 from uploader import distribute_video
 
-ACCOUNTS = [
-    {"name": "Repo-Peter", "mode": "repo"},
-    {"name": "Dev-Peter", "mode": "news"}
-]
+# Archivo de persistencia por si el servidor se cae
+TASKS_FILE = "output/pending_tasks.json"
 
-SLOTS = ["AM", "PM"]
+
+def save_tasks(tasks):
+    with open(TASKS_FILE, "w") as f:
+        json.dump(tasks, f, indent=4)
+
+
+def load_tasks():
+    if os.path.exists(TASKS_FILE):
+        with open(TASKS_FILE, "r") as f:
+            return json.load(f)
+    return []
 
 
 def run_daily_cycle():
-    print(f"🌅 {datetime.now().strftime('%H:%M:%S')} - INICIANDO CICLO DIARIO DE PRODUCCIÓN")
+    os.makedirs("assets", exist_ok=True)
+    os.makedirs("output", exist_ok=True)
 
-    tasks = []  # Lista para guardar (hora_publicacion, ruta_video, cuenta)
+    tasks = load_tasks()
 
-    # --- FASE 1: PRODUCCIÓN EN BLOQUE (7:00 AM) ---
-    for acc in ACCOUNTS:
-        for slot in SLOTS:
-            video_id = f"{acc['name']}_{slot}"
-            print(f"\n🎬 Fabricando video: {video_id}")
+    # --- FASE DE PRODUCCIÓN (Si no hay tareas pendientes) ---
+    if not tasks:
+        print(f"🌅 {datetime.now()} - INICIANDO PRODUCCIÓN DIARIA (7:00 AM)")
 
-            # 1. Generar Guion
-            script_data = generate_script(acc['name'])
+        cuentas = [
+            {"name": "Repo-Peter", "mode": "repo"},
+            {"name": "Dev-Peter", "mode": "news"}
+        ]
 
-            # 2. Captura de escenario
-            bg_path = f"assets/bg_{video_id}.png"
-            capture_scene(script_data["url_objetivo"], bg_path, mode=acc['mode'])
+        for acc in cuentas:
+            for slot in ["AM", "PM"]:
+                video_id = f"{acc['name']}_{slot}"
+                print(f"\n🎬 Creando contenido para: {video_id}")
 
-            # 3. Audio y Video
-            audio_path = f"assets/audio_{video_id}.mp3"
-            real_timeline = generate_dialogue_audio(script_data, audio_path)
+                # 1. IA Guion
+                script = generate_script(acc["name"])
+                if not script: continue
 
-            base_path = f"output/base_{video_id}.mp4"
-            create_split_screen_video(audio_path, real_timeline, "assets/peter.png",
-                                      "assets/brian.png", bg_path,
-                                      "assets/minecraft_parkour.mp4", base_path)
+                # 2. Scraper
+                bg = f"assets/bg_{video_id}.png"
+                capture_scene(script["url_objetivo"], bg, mode=acc["mode"])
 
-            # 4. Subtítulos Finales
-            final_path = f"output/FINAL_{video_id}.mp4"
-            words = transcribe_audio(audio_path)
-            add_viral_subtitles(base_path, words, final_path)
+                # 3. Audio y Timeline
+                audio = f"assets/audio_{video_id}.mp3"
+                timeline = generate_dialogue_audio(script, audio)
 
-            # --- FASE 2: CÁLCULO DE HORARIO ALEATORIO ---
-            # Definimos la ventana (8:30 AM a 9:30 AM para el bloque AM)
-            # Definimos otra ventana para el bloque PM (ej. 20:30 a 21:30 para máxima retención)
-            if slot == "AM":
-                start_h, start_m = 8, 30
-            else:
-                start_h, start_m = 20, 30  # Asumimos tarde real para el video PM
+                # 4. Video Base
+                base = f"output/base_{video_id}.mp4"
+                create_split_screen_video(audio, timeline, "assets/peter.png", "assets/brian.png", bg,
+                                          "assets/minecraft_parkour.mp4", base)
 
-            random_minutes = random.randint(0, 60)
-            target_time = datetime.now().replace(hour=start_h, minute=start_m, second=0) + timedelta(
-                minutes=random_minutes)
+                # 5. Subtítulos
+                final = f"output/FINAL_{video_id}.mp4"
+                words = transcribe_audio(audio)
+                add_viral_subtitles(base, words, final)
 
-            tasks.append({
-                "time": target_time,
-                "path": final_path,
-                "account": acc['name'],
-                "temp_files": [bg_path, audio_path, base_path, final_path]
-            })
-            print(f"📅 Programado: {video_id} para las {target_time.strftime('%H:%M')}")
+                # 6. Calcular Hora de Publicación Aleatoria
+                hora_base = 8 if slot == "AM" else 20
+                target_time = datetime.now().replace(hour=hora_base, minute=30, second=0) + timedelta(
+                    minutes=random.randint(0, 60))
 
-    # --- FASE 3: EL RELOJ DE PUBLICACIÓN ---
-    # Ordenamos las tareas por hora
-    tasks.sort(key=lambda x: x["time"])
+                tasks.append({
+                    "time": target_time.isoformat(),
+                    "video_path": final,
+                    "title": script["tema"],
+                    "description": script["descripcion_viral"],
+                    "cleanup": [bg, audio, base, final]
+                })
 
-    for task in tasks:
-        # Esperar hasta la hora señalada
-        while datetime.now() < task["time"]:
-            time.sleep(30)  # Revisa cada 30 segundos
+        save_tasks(tasks)
+        print(f"✅ Producción terminada. {len(tasks)} videos en cola.")
 
-        print(f"🚀 {datetime.now().strftime('%H:%M')} - DISPARANDO PUBLICACIÓN: {task['path']}")
-        distribute_video(task['path'])
+    # --- FASE DE PUBLICACIÓN (Bucle de espera) ---
+    while tasks:
+        tasks = load_tasks()
+        tasks.sort(key=lambda x: x["time"])
 
-        # --- FASE 4: LIMPIEZA TOTAL ---
-        print(f"🧹 Limpiando archivos de {task['account']}...")
-        for f in task["temp_files"]:
-            if os.path.exists(f):
-                os.remove(f)
+        proxima_tarea = tasks[0]
+        target_dt = datetime.fromisoformat(proxima_tarea["time"])
 
-    print("\n🏁 CICLO COMPLETADO. Todos los videos publicados y local limpio.")
+        if datetime.now() >= target_dt:
+            print(f"🚀 PUBLICANDO AHORA: {proxima_tarea['video_path']}")
+            distribute_video(proxima_tarea["video_path"], proxima_tarea["title"], proxima_tarea["description"])
+
+            # Limpiar archivos del video publicado
+            for f in proxima_tarea["cleanup"]:
+                if os.path.exists(f): os.remove(f)
+
+            # Eliminar de la cola y guardar
+            tasks.pop(0)
+            save_tasks(tasks)
+        else:
+            # Dormir 1 minuto y volver a chequear
+            print(f"⏳ Esperando... Próximo video a las {target_dt.strftime('%H:%M')}")
+            time.sleep(60)
 
 
 if __name__ == "__main__":
