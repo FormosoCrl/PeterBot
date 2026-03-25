@@ -1,4 +1,7 @@
 import os
+import time
+import random
+from datetime import datetime, timedelta
 from brain import generate_script
 from scraper_engine import capture_scene
 from tts_engine import generate_dialogue_audio
@@ -6,77 +9,86 @@ from video_engine import create_split_screen_video
 from subtitle_engine import transcribe_audio, add_viral_subtitles
 from uploader import distribute_video
 
-# Configuración de las cuentas que maneja la fábrica
 ACCOUNTS = [
     {"name": "Repo-Peter", "mode": "repo"},
     {"name": "Dev-Peter", "mode": "news"}
 ]
 
+SLOTS = ["AM", "PM"]
 
-def run_factory():
-    print("🚀 INICIANDO LA FÁBRICA AUTOMÁTICA DE PETER-BOT (MODO SERVIDOR)...")
 
-    # Asegurar directorios base
-    os.makedirs("assets", exist_ok=True)
-    os.makedirs("output", exist_ok=True)
+def run_daily_cycle():
+    print(f"🌅 {datetime.now().strftime('%H:%M:%S')} - INICIANDO CICLO DIARIO DE PRODUCCIÓN")
 
+    tasks = []  # Lista para guardar (hora_publicacion, ruta_video, cuenta)
+
+    # --- FASE 1: PRODUCCIÓN EN BLOQUE (7:00 AM) ---
     for acc in ACCOUNTS:
-        acc_name = acc["name"]
-        print(f"\n" + "=" * 40)
-        print(f"🎬 PROCESANDO: {acc_name}")
-        print("=" * 40)
+        for slot in SLOTS:
+            video_id = f"{acc['name']}_{slot}"
+            print(f"\n🎬 Fabricando video: {video_id}")
 
-        # --- FASE 1: CEREBRO (IA Real + Seguridad) ---
-        print("\n--- FASE 1: GENERANDO GUION SEGURO ---")
-        script_data = generate_script(acc_name)
+            # 1. Generar Guion
+            script_data = generate_script(acc['name'])
 
-        # --- FASE 2: EL OJO (Captura dinámica) ---
-        print("\n--- FASE 2: CAPTURANDO ESCENARIO ---")
-        bg_path = f"assets/bg_{acc_name}.png"
-        capture_scene(url=script_data["url_objetivo"], output_path=bg_path, mode=acc["mode"])
+            # 2. Captura de escenario
+            bg_path = f"assets/bg_{video_id}.png"
+            capture_scene(script_data["url_objetivo"], bg_path, mode=acc['mode'])
 
-        # --- FASE 3: LA VOZ (TTS con ElevenLabs) ---
-        print("\n--- FASE 3: GENERANDO AUDIO REAL ---")
-        audio_path = f"assets/audio_{acc_name}.mp3"
-        real_timeline = generate_dialogue_audio(script_data, output_filepath=audio_path)
+            # 3. Audio y Video
+            audio_path = f"assets/audio_{video_id}.mp3"
+            real_timeline = generate_dialogue_audio(script_data, audio_path)
 
-        # Fallback si no hay API Key o falla el TTS
-        if not real_timeline:
-            print(f"⚠️ Fallo en TTS para {acc_name}. Usando timeline estimado del guion...")
-            real_timeline = [(item[0], item[1], item[2]) for item in script_data["timeline"]]
+            base_path = f"output/base_{video_id}.mp4"
+            create_split_screen_video(audio_path, real_timeline, "assets/peter.png",
+                                      "assets/brian.png", bg_path,
+                                      "assets/minecraft_parkour.mp4", base_path)
 
-        # --- FASE 4: ENSAMBLADO (Video Base) ---
-        print("\n--- FASE 4: MONTANDO VIDEO BASE ---")
-        base_video_path = f"output/base_{acc_name}.mp4"
+            # 4. Subtítulos Finales
+            final_path = f"output/FINAL_{video_id}.mp4"
+            words = transcribe_audio(audio_path)
+            add_viral_subtitles(base_path, words, final_path)
 
-        create_split_screen_video(
-            audio_path=audio_path,
-            speaker_timeline=real_timeline,
-            peter_path="assets/peter.png",
-            brian_path="assets/brian.png",
-            repo_bg_path=bg_path,
-            gameplay_path="assets/minecraft_parkour.mp4",
-            output_path=base_video_path
-        )
+            # --- FASE 2: CÁLCULO DE HORARIO ALEATORIO ---
+            # Definimos la ventana (8:30 AM a 9:30 AM para el bloque AM)
+            # Definimos otra ventana para el bloque PM (ej. 20:30 a 21:30 para máxima retención)
+            if slot == "AM":
+                start_h, start_m = 8, 30
+            else:
+                start_h, start_m = 20, 30  # Asumimos tarde real para el video PM
 
-        # --- FASE 5: EDICIÓN (Subtítulos Virales) ---
-        print("\n--- FASE 5: GENERANDO SUBTÍTULOS AUTOMÁTICOS ---")
-        final_video_path = f"output/FINAL_{acc_name}.mp4"
+            random_minutes = random.randint(0, 60)
+            target_time = datetime.now().replace(hour=start_h, minute=start_m, second=0) + timedelta(
+                minutes=random_minutes)
 
-        words_data = transcribe_audio(audio_path)
-        add_viral_subtitles(base_video_path, words_data, final_video_path)
+            tasks.append({
+                "time": target_time,
+                "path": final_path,
+                "account": acc['name'],
+                "temp_files": [bg_path, audio_path, base_path, final_path]
+            })
+            print(f"📅 Programado: {video_id} para las {target_time.strftime('%H:%M')}")
 
-        # --- FASE 6: PUBLICACIÓN (Uploader) ---
-        print(f"\n--- FASE 6: ENVIANDO A COLA DE PUBLICACIÓN ---")
-        distribute_video(final_video_path)
+    # --- FASE 3: EL RELOJ DE PUBLICACIÓN ---
+    # Ordenamos las tareas por hora
+    tasks.sort(key=lambda x: x["time"])
 
-        print(f"\n✅ PROCESO COMPLETADO PARA {acc_name}")
-        print(f"📁 Video listo en: {final_video_path}")
+    for task in tasks:
+        # Esperar hasta la hora señalada
+        while datetime.now() < task["time"]:
+            time.sleep(30)  # Revisa cada 30 segundos
 
-    print("\n" + "=" * 40)
-    print("🏁 RONDA DE PRODUCCIÓN FINALIZADA")
-    print("=" * 40)
+        print(f"🚀 {datetime.now().strftime('%H:%M')} - DISPARANDO PUBLICACIÓN: {task['path']}")
+        distribute_video(task['path'])
+
+        # --- FASE 4: LIMPIEZA TOTAL ---
+        print(f"🧹 Limpiando archivos de {task['account']}...")
+        for f in task["temp_files"]:
+            if os.path.exists(f):
+                os.remove(f)
+
+    print("\n🏁 CICLO COMPLETADO. Todos los videos publicados y local limpio.")
 
 
 if __name__ == "__main__":
-    run_factory()
+    run_daily_cycle()
