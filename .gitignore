@@ -1,0 +1,25 @@
+# Entornos virtuales (¡CRÍTICO no subir esto!)
+.venv1/
+.venv/
+env/
+venv/
+
+# Carpetas de generación de la fábrica
+output/
+temp/
+
+# Archivos multimedia pesados (ignoramos videos y audios grandes)
+*.mp4
+*.mp3
+*.wav
+
+# Configuraciones locales de PyCharm
+.idea/
+
+# Caché interno de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Archivos de configuración de variables y APIs (Para cuando usemos claves reales)
+.env
