@@ -4,7 +4,7 @@ from scraper_engine import capture_scene
 from tts_engine import generate_dialogue_audio
 from video_engine import create_split_screen_video
 from subtitle_engine import transcribe_audio, add_viral_subtitles
-
+from uploader import distribute_video
 
 def main():
     print("🚀 INICIANDO LA FÁBRICA AUTOMÁTICA DE PETER-BOT...")
@@ -72,6 +72,11 @@ def main():
     print(f"\n🎉 ¡PROCESO COMPLETADO EXITOSAMENTE! 🎉")
     print(f"📁 Tu video viral listo para publicar está en: {final_video_path}")
 
+
+    # ==========================================
+    # FASE 6: EL REPARTIDOR (Publicación)
+    # ==========================================
+    distribute_video(final_video_path)
 
 if __name__ == "__main__":
     main()
