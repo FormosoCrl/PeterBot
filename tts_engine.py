@@ -1,15 +1,19 @@
 import os
+from dotenv import load_dotenv
 from elevenlabs.client import ElevenLabs
 from elevenlabs import save
 from moviepy.editor import AudioFileClip, concatenate_audioclips
 
-# === 🔑 ZONA DE LLAVES (Para el futuro) ===
-ELEVENLABS_API_KEY = "TU_API_KEY_AQUI"
+# 1. Cargamos los secretos del archivo .env de forma segura
+load_dotenv()
 
-# Aquí pondrás los IDs únicos de las voces que clones en ElevenLabs
+# === 🔑 ZONA DE LLAVES (Segura) ===
+# El script buscará estas variables dentro de tu archivo .env
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+
 VOICES = {
-    "Peter": "ID_DE_LA_VOZ_DE_PETER",
-    "Brian": "ID_DE_LA_VOZ_DE_BRIAN"
+    "Peter": os.getenv("VOICE_PETER"),
+    "Brian": os.getenv("VOICE_BRIAN")
 }
 
 
@@ -22,7 +26,13 @@ def generate_dialogue_audio(script_data, output_filepath="assets/audio_final.mp3
     """
     print("🗣️ Conectando con ElevenLabs...")
 
-    # Inicializamos el cliente (fallará si no hay API key válida, pero la lógica es esta)
+    # Verificamos si la clave existe antes de intentar conectar
+    if not ELEVENLABS_API_KEY:
+        print("⚠️ Advertencia: No se encontró ELEVENLABS_API_KEY en el archivo .env.")
+        print("⚠️ Saltando la generación de voz real...")
+        return None
+
+    # Inicializamos el cliente
     client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
     audio_clips = []
@@ -44,9 +54,13 @@ def generate_dialogue_audio(script_data, output_filepath="assets/audio_final.mp3
 
         try:
             # 1. Generar el audio real con la IA de ElevenLabs
+            voice_id = VOICES.get(character)
+            if not voice_id:
+                raise ValueError(f"No se encontró el ID de voz para {character} en el .env")
+
             audio_generator = client.generate(
                 text=text,
-                voice=VOICES.get(character, "ID_POR_DEFECTO"),  # Busca la voz de Peter o Brian
+                voice=voice_id,
                 model="eleven_multilingual_v2"  # Modelo que entiende español e inglés perfecto
             )
             save(audio_generator, chunk_path)
@@ -68,7 +82,6 @@ def generate_dialogue_audio(script_data, output_filepath="assets/audio_final.mp3
 
         except Exception as e:
             print(f"❌ Error al generar la voz de {character}: {e}")
-            print("⚠️ (Es normal si no has puesto la API KEY todavía).")
             return None
 
     # 4. Unir todas las frases sueltas en un solo archivo de audio fluido
@@ -96,4 +109,4 @@ def generate_dialogue_audio(script_data, output_filepath="assets/audio_final.mp3
 
 
 if __name__ == "__main__":
-    print("Módulo TTS estructurado y a la espera de credenciales.")
+    print("Módulo TTS estructurado, seguro y a la espera del guion.")

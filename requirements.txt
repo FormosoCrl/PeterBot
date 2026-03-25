@@ -4,3 +4,4 @@ Pillow
 elevenlabs
 openai-whisper
 playwright
+python-dotenv
