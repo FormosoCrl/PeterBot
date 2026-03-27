@@ -1,113 +1,60 @@
-import os
-import time
-import json
-import random
-from datetime import datetime, timedelta
+import asyncio, os, json, shutil
 from brain import generate_script
-from scraper_engine import capture_scene
-from tts_engine import generate_dialogue_audio
-from video_engine import create_split_screen_video
-from subtitle_engine import transcribe_audio, add_viral_subtitles
-from uploader import distribute_video
-
-# Archivo de persistencia por si el servidor se cae
-TASKS_FILE = "output/pending_tasks.json"
+from voice_processor import generate_voice
+from video_editor import create_minecraft_video
+from subtitle_engine import add_subtitles
 
 
-def save_tasks(tasks):
-    with open(TASKS_FILE, "w") as f:
-        json.dump(tasks, f, indent=4)
+def cleanup_old_assets():
+    """Borra solo los audios del video anterior para evitar conflictos."""
+    print("🧹 Limpiando audios antiguos de la carpeta assets...")
+    if not os.path.exists("assets"):
+        os.makedirs("assets")
+        return
+
+    for file in os.listdir("assets"):
+        # Solo borramos los audios temporales
+        if file.startswith("audio_") and file.endswith(".mp3"):
+            try:
+                os.remove(os.path.join("assets", file))
+            except Exception as e:
+                print(f"⚠️ No se pudo borrar {file}: {e}")
 
 
-def load_tasks():
-    if os.path.exists(TASKS_FILE):
-        with open(TASKS_FILE, "r") as f:
-            return json.load(f)
-    return []
-
-
-def run_daily_cycle():
-    os.makedirs("assets", exist_ok=True)
+async def main():
+    # 1. Preparación y Limpieza
+    cleanup_old_assets()
     os.makedirs("output", exist_ok=True)
 
-    tasks = load_tasks()
+    # 2. IA Guionista (Ahora busca tendencias reales de GitHub)
+    script = generate_script("Repo-Peter")
+    if not script:
+        print("❌ Error: No se pudo generar el guion.")
+        return
 
-    # --- FASE DE PRODUCCIÓN (Si no hay tareas pendientes) ---
-    if not tasks:
-        print(f"🌅 {datetime.now()} - INICIANDO PRODUCCIÓN DIARIA (7:00 AM)")
+    # Guardamos el guion para tener un registro de qué se ha creado
+    with open("assets/ultimo_guion.json", "w", encoding="utf-8") as f:
+        json.dump(script, f, indent=4, ensure_ascii=False)
 
-        cuentas = [
-            {"name": "Repo-Peter", "mode": "repo"},
-            {"name": "Dev-Peter", "mode": "news"}
-        ]
+    # 3. Generación de Voces (Doblaje)
+    print(f"🎙️ Iniciando doblaje para el repo: {script['tema']}")
+    tasks = []
+    for i, line in enumerate(script["timeline"]):
+        print(f"💬 [{line[2]}] grabando: {line[3]}")
+        # Generamos los audios uno a uno
+        await generate_voice(line[3], line[2], i)
 
-        for acc in cuentas:
-            for slot in ["AM", "PM"]:
-                video_id = f"{acc['name']}_{slot}"
-                print(f"\n🎬 Creando contenido para: {video_id}")
+    # 4. Edición de Video (Montaje con parche de compatibilidad)
+    # Usamos el archivo de parkour que ya tienes en assets
+    create_minecraft_video(script, "assets/minecraft_parkour.mp4", "output/base.mp4")
 
-                # 1. IA Guion
-                script = generate_script(acc["name"])
-                if not script: continue
-
-                # 2. Scraper
-                bg = f"assets/bg_{video_id}.png"
-                capture_scene(script["url_objetivo"], bg, mode=acc["mode"])
-
-                # 3. Audio y Timeline
-                audio = f"assets/audio_{video_id}.mp3"
-                timeline = generate_dialogue_audio(script, audio)
-
-                # 4. Video Base
-                base = f"output/base_{video_id}.mp4"
-                create_split_screen_video(audio, timeline, "assets/peter.png", "assets/brian.png", bg,
-                                          "assets/minecraft_parkour.mp4", base)
-
-                # 5. Subtítulos
-                final = f"output/FINAL_{video_id}.mp4"
-                words = transcribe_audio(audio)
-                add_viral_subtitles(base, words, final)
-
-                # 6. Calcular Hora de Publicación Aleatoria
-                hora_base = 8 if slot == "AM" else 20
-                target_time = datetime.now().replace(hour=hora_base, minute=30, second=0) + timedelta(
-                    minutes=random.randint(0, 60))
-
-                tasks.append({
-                    "time": target_time.isoformat(),
-                    "video_path": final,
-                    "title": script["tema"],
-                    "description": script["descripcion_viral"],
-                    "cleanup": [bg, audio, base, final]
-                })
-
-        save_tasks(tasks)
-        print(f"✅ Producción terminada. {len(tasks)} videos en cola.")
-
-    # --- FASE DE PUBLICACIÓN (Bucle de espera) ---
-    while tasks:
-        tasks = load_tasks()
-        tasks.sort(key=lambda x: x["time"])
-
-        proxima_tarea = tasks[0]
-        target_dt = datetime.fromisoformat(proxima_tarea["time"])
-
-        if datetime.now() >= target_dt:
-            print(f"🚀 PUBLICANDO AHORA: {proxima_tarea['video_path']}")
-            distribute_video(proxima_tarea["video_path"], proxima_tarea["title"], proxima_tarea["description"])
-
-            # Limpiar archivos del video publicado
-            for f in proxima_tarea["cleanup"]:
-                if os.path.exists(f): os.remove(f)
-
-            # Eliminar de la cola y guardar
-            tasks.pop(0)
-            save_tasks(tasks)
-        else:
-            # Dormir 1 minuto y volver a chequear
-            print(f"⏳ Esperando... Próximo video a las {target_dt.strftime('%H:%M')}")
-            time.sleep(60)
+    # 5. Subtítulos (Opcional si tienes ImageMagick configurado)
+    try:
+        add_subtitles("output/base.mp4", "output/FINAL.mp4")
+        print(f"✅ ¡PROCESO COMPLETADO! Video final en: output/FINAL.mp4")
+    except Exception as e:
+        print(f"⚠️ Error en subtítulos, pero el video base está en output/base.mp4: {e}")
 
 
 if __name__ == "__main__":
-    run_daily_cycle()
+    asyncio.run(main())

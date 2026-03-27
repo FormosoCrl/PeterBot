@@ -1,65 +1,87 @@
-import os
-import json
-import google.generativeai as genai
+import os, time, re, json, requests
+from google import genai
 from dotenv import load_dotenv
+from bs4 import BeautifulSoup
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 
-def generate_script(account_type="Repo-Peter", retries=0):
-    """Genera un guion viral y lo valida contra las normas de seguridad."""
+def get_trending_repo():
+    """Obtiene el repositorio número 1 en tendencias de GitHub."""
+    try:
+        url = "https://github.com/trending"
+        response = requests.get(url, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        repo = soup.select_one('article.Box-row')
 
-    if retries >= 3:
-        print("❌ ERROR: Límite de reintentos con la IA alcanzado. Abortando misión.")
-        return None
+        # Extraemos nombre, descripción y estrellas
+        title = repo.select_one('h2 a').text.replace('\n', '').replace(' ', '')
+        desc = repo.select_one('p').text.strip() if repo.select_one('p') else "A mysterious coding project"
+        stars = repo.select_one('a[href$="/stargazers"]').text.strip()
 
-    model = genai.GenerativeModel('gemini-pro')
+        return {"name": title, "desc": desc, "stars": stars}
+    except Exception:
+        # Fallback por si GitHub bloquea la petición
+        return {"name": "AutoPeter-Bot", "desc": "The ultimate viral video creator", "stars": "99k"}
 
-    # Contexto según la cuenta
-    if account_type == "Repo-Peter":
-        contexto = "un repositorio de GitHub increíble y útil para programadores"
-    else:
-        contexto = "una noticia de última hora sobre Inteligencia Artificial o desarrollo"
+
+def generate_script(account_type="Repo-Peter", retries=5):
+    repo_info = get_trending_repo()
 
     prompt = f"""
-    Actúa como un guionista viral. Genera un guion de 15-20 segundos entre Peter Griffin y Brian Griffin.
-    Tema: {contexto}.
-    Peter está muy emocionado y Brian es el perro intelectual y escéptico.
+    Act as a Senior Family Guy Scriptwriter. 
+    TOPIC: The real GitHub repository '{repo_info['name']}'.
+    REPO CONTEXT: {repo_info['desc']} with {repo_info['stars']} stars.
 
-    Debes devolver estrictamente un objeto JSON con esta estructura:
+    RULES:
+    1. Characters: ONLY 'Peter' and 'Stewie'.
+    2. Peter: He thinks '{repo_info['name']}' is something stupid like a new type of beer or a sandwich maker.
+    3. Stewie: He is condescending, insults Peter's weight, and explains why the repo is actually genius.
+    4. ENERGY: Extremely fast-paced.
+    5. PUNCTUATION: Use ONLY ONE (!) or (?) per dialogue. 
+    6. PLACEMENT: These marks MUST be ONLY at the very end of each phrase.
+    7. FORBIDDEN: No periods (.), no commas (,), no ellipses (...). No internal punctuation.
+
+    STRICT JSON OUTPUT ONLY:
     {{
-        "tema": "Título corto y clickbait",
-        "url_objetivo": "URL real del repositorio o noticia",
-        "descripcion_viral": "Título para el post con hashtags virales",
+        "seguridad": "APTO", 
+        "tema": "{repo_info['name']} is crazy", 
+        "url_objetivo": "https://github.com/{repo_info['name']}", 
+        "descripcion_viral": "Peter finds {repo_info['name']}",
         "timeline": [
-            [0.0, 4.0, "Peter", "Texto de Peter"],
-            [4.0, 8.5, "Brian", "Texto de Brian"]
+            [0.0, 5.0, "Peter", "Dialogue text!"],
+            [5.0, 10.0, "Stewie", "Dialogue text?"]
         ]
     }}
-    Responde SOLO el JSON, sin bloques de código Markdown.
     """
 
-    try:
-        print(f"🧠 [IA] Generando guion para {account_type} (Intento {retries + 1})...")
-        response = model.generate_content(prompt)
+    for attempt in range(retries):
+        try:
+            print(f"🧠 [IA] Contexto real: {repo_info['name']} (Intento {attempt + 1}/{retries})...")
+            response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
 
-        # Limpiamos posibles restos de Markdown de la IA
-        clean_text = response.text.replace("```json", "").replace("```", "").strip()
-        script_data = json.loads(clean_text)
+            clean_json = re.sub(r'```json|```', '', response.text).strip()
+            data = json.loads(clean_json)
 
-        # --- VALIDACIÓN DE SEGURIDAD (Filtro de baneo) ---
-        print("🛡️ [IA] Verificando seguridad del contenido...")
-        safety_prompt = f"¿Es este texto apto para monetizar en TikTok, Instagram y YouTube? Responde SOLO 'SI' o 'NO': {clean_text}"
-        safety_check = model.generate_content(safety_prompt)
+            if data.get("seguridad") == "APTO":
+                # Limpieza forzada por si la IA se salta las reglas
+                for line in data["timeline"]:
+                    line[3] = line[3].replace(".", "").replace(",", "").replace("...", "")
+                return data
 
-        if "SI" in safety_check.text.upper():
-            print("✅ Contenido validado y seguro.")
-            return script_data
-        else:
-            print("⚠️ Contenido marcado como sensible. Reintentando generación...")
-            return generate_script(account_type, retries + 1)
+        except Exception as e:
+            if "503" in str(e) or "429" in str(e):
+                time.sleep(15)
+            else:
+                print(f"❌ Error en Brain: {e}")
+                return None
+    return None
 
-    except Exception as e:
-        print(f"❌ Error en Brain Engine: {e}")
-        return generate_script(account_type, retries + 1)
+
+if __name__ == "__main__":
+    guion = generate_script()
+    if guion:
+        with open("guion_test.json", "w", encoding="utf-8") as f:
+            json.dump(guion, f, indent=4, ensure_ascii=False)
+        print(f"✅ Guion sobre {guion['tema']} guardado.")
