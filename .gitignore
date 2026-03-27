@@ -23,3 +23,24 @@ __pycache__/
 
 # Archivos de configuración de variables y APIs (Para cuando usemos claves reales)
 .env
+
+
+# Modelos pesados (Se quedan solo en tu PC)
+models/
+*.pth
+*.index
+*.zip
+
+# Archivos temporales
+assets/audio_*.mp3
+guion_test.json
+temp/
+__pycache__/
+
+# Seguridad y Entorno
+.env
+.venv1/
+browser_session/
+
+# Videos generados
+output/*.mp4
