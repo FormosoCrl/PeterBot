@@ -1,43 +1,9 @@
-# Entornos virtuales (¡CRÍTICO no subir esto!)
-.venv1/
-.venv/
-env/
-venv/
-
-# Carpetas de generación de la fábrica
-output/
-temp/
-
-# Archivos multimedia pesados (ignoramos videos y audios grandes)
-*.mp4
-*.mp3
-*.wav
-
-# Configuraciones locales de PyCharm
-.idea/
-
-# Caché interno de Python
+.venv310/
 __pycache__/
-*.pyc
-*.pyo
-
-# Archivos de configuración de variables y APIs (Para cuando usemos claves reales)
-.env
-
 models/
-*.pth
-*.index
-*.zip
+assets/
 output/
+logs/
 browser_session/
 .env
-
-models/
-output/
-browser_session/
-assets/audio_*.mp3
-assets/base_*.mp4
-assets/FINAL_*.mp4
-.env
-__pycache__/
 .venv1/

@@ -39,6 +39,7 @@ def generate_script(account_type="Repo-Peter", retries=5):
     2. Peter: He thinks '{repo_info['name']}' is something stupid like a new type of beer or a sandwich maker.
     3. Stewie: He is condescending, insults Peter's weight, and explains why the repo is actually genius.
     4. ENERGY: Extremely fast-paced.
+    5. LENGTH: The dialogue MUST have at least 15 back-and-forth lines. Make it long and argumentative.
     5. PUNCTUATION: Use ONLY ONE (!) or (?) per dialogue. 
     6. PLACEMENT: These marks MUST be ONLY at the very end of each phrase.
     7. FORBIDDEN: No periods (.), no commas (,), no ellipses (...). No internal punctuation.
