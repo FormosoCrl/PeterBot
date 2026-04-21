@@ -7,3 +7,11 @@ logs/
 browser_session/
 .env
 .venv1/
+".idea/" 
+"pyvenv.cfg" 
+"*.mp4" 
+"*.wav" 
+.idea/
+pyvenv.cfg
+*.mp4
+*.wav
