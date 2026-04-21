@@ -97,11 +97,14 @@ def distribute_video(video_path, title, description, account_name):
         context = p.chromium.launch_persistent_context(
             session_dir,
             headless=True,
+            channel="chrome",
+            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+            ignore_default_args=["--enable-automation"],
         )
         try:
             page = context.new_page()
-            upload_to_tiktok(page, video_path, full_caption)
-            wait_random(60, 120)
+            # TikTok deshabilitado: detecta logins automatizados incluso con Chrome real.
+            # Reactivar cuando tengamos estrategia alternativa (perfil Chrome real, API creadores).
             upload_to_instagram(page, video_path, full_caption)
         finally:
             context.close()
