@@ -1,17 +1,37 @@
-.venv310/
+# Python
 __pycache__/
+*.pyc
+*.pyo
+
+# Virtualenvs
+.venv/
+.venv1/
+.venv310/
+pyvenv.cfg
+
+# IDEs
+.idea/
+.vscode/
+
+# Secrets / credenciales
+.env
+.env.*
+!.env.example
+
+# Estado persistente (sesiones de navegador, modelos RVC, assets pesados)
+browser_session/
+sessions/
 models/
 assets/
 output/
+output_audios/
 logs/
-browser_session/
-.env
-.venv1/
-".idea/" 
-"pyvenv.cfg" 
-"*.mp4" 
-"*.wav" 
-.idea/
-pyvenv.cfg
+
+# Artefactos multimedia
 *.mp4
 *.wav
+*.mp3
+
+# Estado interno del pipeline
+state.json
+!**/state.example.json

@@ -1,75 +1,126 @@
-# 🤖 PeterBot: The Viral Content Factory
+# 🤖 PeterBot — Viral Content Factory
 
-**PeterBot** is a fully automated video generation pipeline designed to create "Split-Screen" viral content for TikTok, YouTube Shorts, and Instagram Reels. Featuring the iconic duo Peter and Brian, this bot scrapes GitHub repositories, generates AI-powered dialogues, and assembles high-engagement videos with dynamic subtitles.
-
----
-
-## 🚀 Features
-
-* **Automated Scraper:** Uses Playwright to capture clean, dark-mode screenshots of GitHub repositories or tech news.
-* **AI Dialogue System:** Integrated with ElevenLabs for high-quality, emotional voiceovers.
-* **Dynamic Video Engine:** Built on MoviePy to handle split-screen layouts, character "jumping" effects based on audio volume, and random gameplay background selection.
-* **Viral Subtitles:** Powered by OpenAI's Whisper for word-level synchronization and "MrBeast-style" animated captions.
-* **Auto-Distribution:** (In Progress) Logic for multi-platform uploading.
+Pipeline totalmente automatizado para generar y publicar videos verticales
+(TikTok / Instagram Reels / YouTube Shorts) con el dúo **Peter + Stewie**
+comentando repos trending de GitHub.
 
 ---
 
-## 🛠️ Tech Stack
+## 🚀 Pipeline
 
-* **Language:** Python 3.12
-* **Video Editing:** MoviePy
-* **Browser Automation:** Playwright
-* **Speech & Audio:** ElevenLabs API & OpenAI Whisper (Local)
-* **Environment:** Dotenv for secure credential management
+1. **`brain.py`** — Scrapea GitHub Trending y genera un guión con **Gemini**
+   (`gemini-3-flash-preview` por defecto, configurable con `GEMINI_MODEL`).
+2. **`voice_processor.py`** — TTS con **Silero** (CPU) + clonación de voz con
+   **RVC** local (`rvc-cli`). Modelos `.pth` / `.index` en `models/`.
+3. **`video_editor.py`** — Compone el video vertical 1080×1920 con
+   **MoviePy**: fondo (Minecraft parkour) + imágenes de personajes + audio.
+4. **`subtitle_engine.py`** — Subtítulos word-level con **OpenAI Whisper**
+   (modelo `base`).
+5. **`uploader.py`** — Publica en TikTok e Instagram con **Playwright** y
+   sesión persistente por cuenta.
+6. **`main.py`** — Orquestador. Genera el batch del día siguiente a las
+   `PRODUCE_HOUR` (22:00 por defecto) y publica a las 08:30 y 20:30 con
+   jitter aleatorio.
 
 ---
 
-## 📦 Installation
+## 🛠️ Tech stack
 
-1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/youruser/PeterBot.git](https://github.com/youruser/PeterBot.git)
-   cd PeterBot
-Setup Virtual Environment:
+- Python 3.12
+- Gemini API (`google-genai`)
+- Silero TTS + RVC (`rvc-cli`)
+- MoviePy 1.0.3 + ImageMagick (Windows: marca *Install legacy utilities*)
+- OpenAI Whisper (local, CPU)
+- Playwright Chromium headless
+- Dotenv
 
-Bash
-python -m venv .venv1
-# Activate on Windows:
-.\.venv1\Scripts\activate
-Install Dependencies:
+---
 
-Bash
+## 📦 Instalación
+
+```bash
+git clone https://github.com/FormosoCrl/PeterBot.git
+cd PeterBot
+
+python -m venv .venv
+# Windows
+.\.venv\Scripts\activate
+# Linux (Contabo)
+source .venv/bin/activate
+
 pip install -r requirements.txt
-playwright install
-External Requirement:
-Install ImageMagick on your OS. Crucial for Windows: Check the box "Install legacy utilities (e.g. convert)" during installation.
+playwright install chromium
+```
 
-⚙️ Configuration
-Create a .env file in the root directory and fill in your credentials:
+Además necesitas:
 
-Fragmento de código
-ELEVENLABS_API_KEY=your_key_here
-VOICE_PETER=your_peter_voice_id
-VOICE_BRIAN=your_brian_voice_id
+- **ImageMagick** instalado a nivel de sistema (para los subtítulos de MoviePy).
+- **`rvc-cli`** instalado globalmente (no es pip-installable estándar, ver
+  [RVC-CLI docs](https://rvc-cli.pages.dev/)).
+- Modelos RVC en `models/PETER.pth`, `models/PETER.index`, `models/STEWIE.pth`,
+  `models/STEWIE.index`.
 
-# Optional for future features:
-OPENAI_API_KEY=your_openai_key
-TIKTOK_SESSION_ID=your_session_id
-🎮 Usage
-Place your base assets in the assets/ folder:
+---
 
-peter.png / brian.png (Transparent backgrounds)
+## ⚙️ Configuración (`.env`)
 
-minecraft_parkour.mp4 (Or any background gameplay)
+```dotenv
+# APIs
+GEMINI_API_KEY=tu_key
+GEMINI_MODEL=gemini-3-flash-preview   # opcional
 
-audio_final.mp3 (Test audio if API is not set)
+# Comportamiento
+DRY_RUN=true          # true = no publica en redes (recomendado 1ª vuelta)
+PRODUCE_HOUR=22       # hora de generación del batch
 
-Run the master script:
+# Sesiones persistentes por cuenta
+REPO_PETER_SESSION_DIR=./sessions/repo_peter
+DEV_PETER_SESSION_DIR=./sessions/dev_peter
+```
 
-Bash
-python main.py
-Output:
-Find your rendered masterpiece in the output/ folder.
+---
 
-🛡️ License
-This project is private and intended for personal use. All rights reserved.
+## 🔐 Sesiones de navegador
+
+Antes de la primera ejecución hay que loguearse manualmente en cada red
+para cada identidad:
+
+```bash
+python get_session.py
+```
+
+El script abre Chromium no-headless, pide el nombre de la identidad
+(ej. `repo_peter`) y guarda la sesión en `sessions/<identidad>/`.
+Después, `uploader.py` levanta esa sesión en headless sin pedir login.
+
+---
+
+## 🎮 Uso
+
+```bash
+# Primera validación (no publica — safety guard + DRY_RUN)
+DRY_RUN=true python main.py
+
+# Producción real (cuando hayas validado al menos 3-4 rondas)
+DRY_RUN=false python main.py
+```
+
+En Contabo lo típico es lanzarlo con `systemd` o `tmux` para que sobreviva
+al logout.
+
+---
+
+## 🛡️ Safety guards
+
+- Los clicks finales de `Post` / `Share` están **comentados** en
+  `uploader.py`. Actívalos sólo cuando confirmes que los selectores y la
+  sesión funcionan.
+- `DRY_RUN=true` corta la llamada al uploader antes de abrir el navegador.
+- `output/state.json` guarda los últimos 50 repos cubiertos para no
+  repetir tema al día siguiente.
+
+---
+
+## 📁 Licencia
+
+Proyecto privado. Uso personal. All rights reserved.

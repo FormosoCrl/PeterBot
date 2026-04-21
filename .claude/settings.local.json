@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(python -c ' *)",
+      "Bash(python -m py_compile brain.py)",
+      "Bash(python -m py_compile main.py)",
+      "Bash(python -m py_compile uploader.py)",
+      "Bash(python -m py_compile voice_processor.py)",
+      "Bash(python -m py_compile video_editor.py)"
+    ]
+  }
+}
