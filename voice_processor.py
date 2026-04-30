@@ -22,7 +22,7 @@ VOICE_MAP = {
 
 # Pitch shift en semitonos. Peter baja un poco (voz grave),
 # Stewie sube moderado — +12 era demasiado agresivo y causaba metalicidad.
-PITCH_MAP = {"PETER": -4, "STEWIE": 8}
+PITCH_MAP = {"PETER": 2, "STEWIE": 8}
 
 # Parámetros RVC optimizados para CPU sin GPU:
 # - rmvpe: mejor extracción de F0 en CPU (vs harvest por defecto)
