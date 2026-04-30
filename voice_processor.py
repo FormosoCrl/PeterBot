@@ -19,7 +19,21 @@ VOICE_MAP = {
     "PETER": "en-US-ChristopherNeural",
     "STEWIE": "en-GB-RyanNeural",
 }
-PITCH_MAP = {"PETER": -5, "STEWIE": 12}
+
+# Pitch shift en semitonos. Peter baja un poco (voz grave),
+# Stewie sube moderado — +12 era demasiado agresivo y causaba metalicidad.
+PITCH_MAP = {"PETER": -4, "STEWIE": 8}
+
+# Parámetros RVC optimizados para CPU sin GPU:
+# - rmvpe: mejor extracción de F0 en CPU (vs harvest por defecto)
+# - index_rate 0.7: buen equilibrio timbre modelo / naturalidad
+# - filter_radius 3: suaviza artefactos de pitch
+# - protect 0.35: preserva consonantes y sibilantes
+RVC_METHOD = "rmvpe"
+RVC_INDEX_RATE = "0.7"
+RVC_FILTER_RADIUS = "3"
+RVC_PROTECT = "0.35"
+RVC_VERSION = "v2"
 
 os.makedirs("assets", exist_ok=True)
 
@@ -98,6 +112,11 @@ async def generate_voice(text: str, character: str, index: str):
         "--output", final_mp3,
         "--device", "cpu",
         "--pitch", str(pitch_shift),
+        "--method", RVC_METHOD,
+        "--index_rate", RVC_INDEX_RATE,
+        "--filter_radius", RVC_FILTER_RADIUS,
+        "--protect", RVC_PROTECT,
+        "--version", RVC_VERSION,
     ]
 
     try:
