@@ -3,7 +3,7 @@ import logging
 import os
 import re
 
-import torch
+import edge_tts
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,47 +12,74 @@ log = logging.getLogger("peterbot.voice")
 RVC_CLI = os.environ.get("RVC_CLI_BIN", "rvc-cli")
 MODELS_DIR = os.environ.get("MODELS_DIR", "models")
 
+# Microsoft Neural voices — base para RVC.
+# Peter: voz masculina americana grave.
+# Stewie: voz masculina británica con dicción clara.
+VOICE_MAP = {
+    "PETER": "en-US-ChristopherNeural",
+    "STEWIE": "en-GB-RyanNeural",
+}
 PITCH_MAP = {"PETER": -5, "STEWIE": 12}
-SPEAKER_MAP = {"PETER": "en_1", "STEWIE": "en_2"}
 
 os.makedirs("assets", exist_ok=True)
 
-device = torch.device("cpu")
-model_tts, _ = torch.hub.load(
-    repo_or_dir="snakers4/silero-models",
-    model="silero_tts",
-    language="en",
-    speaker="v3_en",
-    trust_repo=True,
-)
-model_tts.to(device)
-
 
 def _clean_text(text):
-    return re.sub(r"[^a-zA-Z0-9\s!?]", "", text).strip()
+    """Elimina caracteres no soportados por el TTS."""
+    return re.sub(r"[^\w\s!?',\-]", "", text, flags=re.UNICODE).strip()
 
 
-async def generate_voice(text, character, index):
-    """Genera el audio final para una línea: TTS Silero → RVC local."""
+async def _edge_tts_to_wav(text: str, voice: str, out_wav: str) -> bool:
+    """Genera WAV con edge-tts → convierte a WAV via ffmpeg."""
+    tmp_mp3 = out_wav.replace(".wav", "_tts.mp3")
+    try:
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(tmp_mp3)
+    except Exception as e:
+        log.exception("❌ edge-tts falló: %s", e)
+        return False
+
+    # Convertir MP3 → WAV 48kHz mono para que RVC lo ingiera bien
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-i", tmp_mp3,
+            "-ar", "48000", "-ac", "1", out_wav,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.communicate()
+        return proc.returncode == 0
+    except FileNotFoundError:
+        log.error("❌ ffmpeg no encontrado en PATH")
+        return False
+    finally:
+        if os.path.exists(tmp_mp3):
+            try:
+                os.remove(tmp_mp3)
+            except OSError:
+                pass
+
+
+async def generate_voice(text: str, character: str, index: str):
+    """Genera el audio final para una línea: edge-tts → RVC local.
+
+    Reemplaza Silero por Microsoft Neural TTS (edge-tts), que produce
+    una prosodia mucho más natural como base para la conversión RVC.
+    """
     char = character.upper()
     text_clean = _clean_text(text)
     if not text_clean:
         log.warning("Línea vacía tras limpieza, saltando %s", index)
         return None
 
+    voice = VOICE_MAP.get(char, "en-US-ChristopherNeural")
     temp_wav = os.path.join("assets", f"temp_{index}.wav")
     final_mp3 = os.path.join("assets", f"audio_{index}.mp3")
 
-    speaker_id = SPEAKER_MAP.get(char, "en_1")
-    try:
-        model_tts.save_wav(
-            text=text_clean,
-            speaker=speaker_id,
-            sample_rate=48000,
-            audio_path=temp_wav,
-        )
-    except Exception as e:
-        log.exception("❌ Silero falló para %s: %s", index, e)
+    log.info("🗣️ edge-tts [%s / %s] → %s", char, voice, index)
+    ok = await _edge_tts_to_wav(text_clean, voice, temp_wav)
+    if not ok or not os.path.exists(temp_wav):
+        log.error("❌ edge-tts no generó audio para %s", index)
         return None
 
     pth = os.path.join(MODELS_DIR, f"{char}.pth")
@@ -63,7 +90,6 @@ async def generate_voice(text, character, index):
         return None
 
     pitch_shift = PITCH_MAP.get(char, 0)
-
     args = [
         RVC_CLI, "infer",
         "--input", temp_wav,
@@ -90,7 +116,7 @@ async def generate_voice(text, character, index):
             )
             return None
     except FileNotFoundError:
-        log.error("❌ rvc-cli no está instalado o no está en el PATH (variable RVC_CLI_BIN)")
+        log.error("❌ rvc-cli no está instalado o no está en el PATH")
         return None
     finally:
         if os.path.exists(temp_wav):
@@ -103,4 +129,5 @@ async def generate_voice(text, character, index):
         log.error("❌ rvc-cli no produjo salida en %s", final_mp3)
         return None
 
+    log.info("✅ Audio generado: %s", final_mp3)
     return final_mp3
