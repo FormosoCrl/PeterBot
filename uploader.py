@@ -72,9 +72,9 @@ def upload_to_instagram(page, video_path, title):
         page.locator('div[aria-label="Write a caption..."]').fill(title)
         wait_random()
 
-        # ⚠️ Safety guard: el click de Share está deshabilitado hasta validar manualmente.
-        # page.get_by_text("Share").click()
-        log.info("✅ Instagram: Proceso de subida terminado (Share desactivado).")
+        page.get_by_text("Share").click()
+        wait_random(5, 10)
+        log.info("✅ Instagram: Reel publicado.")
     except Exception as e:
         log.exception("❌ Error Instagram: %s", e)
 
