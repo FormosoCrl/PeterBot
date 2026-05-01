@@ -68,7 +68,7 @@ def add_subtitles(video_path, output_path):
             codec="libx264",
             audio_codec="aac",
             preset="medium",
-            ffmpeg_params=["-pix_fmt", "yuv420p"],
+            ffmpeg_params=["-pix_fmt", "yuv420p", "-crf", "28"],
             threads=4,
             logger=None,
         )
