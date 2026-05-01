@@ -23,24 +23,16 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) PeterBot/1.0
 EXAMPLE_SCRIPT = """
 EXAMPLE OF THE QUALITY AND LENGTH EXPECTED (do NOT copy this, use it only as a reference):
 [
-  [0, 4, "Peter", "Lois I just found the greatest thing on the internet it is called Codex CLI!"],
-  [4, 8, "Stewie", "Oh for the love of God what are you babbling about now you enormous waste of carbon!"],
-  [8, 13, "Peter", "It says here it writes computer code all by itself Stewie and I think it could help me write a song about beer!"],
-  [13, 17, "Stewie", "It is a command line interface for an AI coding model you blithering idiot it does not write beer songs!"],
-  [17, 22, "Peter", "But Stewie it has like forty five thousand stars and you only have zero stars because nobody likes you!"],
-  [22, 27, "Stewie", "Those are GitHub stars you grotesque man child it means forty five thousand developers find it genuinely useful!"],
-  [27, 32, "Peter", "Hehehehehe can I use it to make Meg do my chores because that would be pretty sweet!"],
-  [32, 37, "Stewie", "You can write entire applications from plain English which is genuinely revolutionary you magnificent fool!"],
-  [37, 42, "Peter", "Wait so I just tell it what I want and it writes the code that is literally what I thought programming was!"],
-  [42, 47, "Stewie", "Nobody pays you to write code Peter you drive a truck for a brewery and you barely manage that you disappointment!"],
-  [47, 52, "Peter", "OK but Stewie what if I told it to write me a program that orders pizza automatically because that would change my life!"],
-  [52, 57, "Stewie", "That is actually a perfectly valid use case and I hate that you accidentally stumbled onto something intelligent!"],
-  [57, 62, "Peter", "See Stewie I am smarter than you think I just think about food instead of world domination because food is better!"],
-  [62, 67, "Stewie", "The model understands entire codebases at once which means even your catastrophic spaghetti would be fixable!"],
-  [67, 72, "Peter", "Stewie I have no idea what a codebase is but if it gets me pizza faster I am all in on this technology!"],
-  [72, 77, "Stewie", "It is completely free and open source which means even a sentient potato like yourself could use it at no cost!"],
-  [77, 82, "Peter", "Wait it is free Stewie this is better than the time I found twenty dollars in my old coat best day ever!"],
-  [82, 87, "Stewie", "I genuinely cannot tell if you are the luckiest or the most infuriating creature alive but here we are!"]
+  [0, 5, "Peter", "Lois, I just found this thing called Codex CLI and I think it writes code by itself!"],
+  [5, 10, "Stewie", "Oh for the love of God, it is a command-line AI coding tool, not a magic pizza dispenser!"],
+  [10, 16, "Peter", "But Stewie, it has forty-five thousand stars, and you have zero, because nobody likes you!"],
+  [16, 22, "Stewie", "Those are GitHub stars, you blithering idiot, it means forty-five thousand developers use it daily!"],
+  [22, 28, "Peter", "Wait, so I just tell it what I want and it writes the whole thing? That is literally what I thought coding was!"],
+  [28, 34, "Stewie", "You can build entire applications from plain English, which is genuinely revolutionary, you magnificent fool!"],
+  [34, 40, "Peter", "OK but what if I asked it to write a program that just orders pizza every Friday, would that work?"],
+  [40, 46, "Stewie", "That is actually a perfectly valid use case and I hate that you accidentally said something intelligent!"],
+  [46, 52, "Peter", "See, I told you, Stewie, thinking about food is basically the same as thinking about world domination!"],
+  [52, 57, "Stewie", "I genuinely cannot tell if you are the luckiest or most infuriating creature alive, but here we are!"]
 ]
 """
 
@@ -217,13 +209,13 @@ CHARACTER RULES:
 - Stewie Griffin: Evil genius baby. {stewie_role}. He is condescending, uses big words, insults Peter's intelligence and weight, but secretly respects his accidental insights.
 
 SCRIPT QUALITY RULES:
-1. LENGTH: Write EXACTLY 18 to 22 dialogue lines — this must fill 1 to 2 minutes of video.
+1. LENGTH: Write EXACTLY 10 to 14 dialogue lines — this must fill 60 to 90 seconds of video. Be punchy, not exhaustive.
 2. FLOW: Each line must naturally follow from the previous. No random topic jumps.
-3. AUTHENTICITY: Include 2-3 real technical details from the context above so viewers learn something.
-4. COMEDY: Peter's misunderstanding must escalate through the conversation and resolve humorously.
+3. AUTHENTICITY: Include 1-2 real technical details from the context above so viewers learn something.
+4. COMEDY: Peter's misunderstanding must escalate fast and pay off hard — every line must be funnier than the last.
 5. ENDING: The last 2 lines must be a satisfying comedic payoff — Peter accidentally makes a brilliant point, Stewie is grudgingly impressed.
-6. PUNCTUATION: Each line ends with EXACTLY ONE ! or ?. No periods, no commas, no ellipses anywhere.
-7. LANGUAGE: English only. Natural speech rhythm — how people actually talk, not how they write.
+6. PUNCTUATION: Each line ends with EXACTLY ONE ! or ?. No periods, no ellipses. Use commas only where you would naturally pause mid-sentence when speaking aloud.
+7. LANGUAGE: English only. Write exactly how these characters would actually say it out loud — casual, fast, with natural rhythm.
 
 {EXAMPLE_SCRIPT}
 
@@ -264,13 +256,13 @@ def generate_script(account_type="Repo-Peter", retries=10, exclude=None):
                 continue
 
             timeline = data.get("timeline", [])
-            if len(timeline) < 14:
+            if len(timeline) < 8:
                 log.warning("Guion demasiado corto (%d líneas). Reintentando.", len(timeline))
                 continue
 
-            # Limpiar puntuación residual
+            # Limpiar solo puntuación que rompe el TTS; conservar comas (pausas naturales)
             for line in timeline:
-                line[3] = line[3].replace(".", "").replace(",", "").replace("...", "")
+                line[3] = line[3].replace("...", "").replace(";", ",")
 
             log.info("✅ Guion generado: %d líneas sobre '%s'", len(timeline), content["name"])
             return data

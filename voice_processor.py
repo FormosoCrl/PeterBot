@@ -47,7 +47,7 @@ async def _edge_tts_to_wav(text: str, voice: str, out_wav: str) -> bool:
     """Genera WAV con edge-tts → convierte a WAV via ffmpeg."""
     tmp_mp3 = out_wav.replace(".wav", "_tts.mp3")
     try:
-        communicate = edge_tts.Communicate(text, voice)
+        communicate = edge_tts.Communicate(text, voice, rate="-10%")
         await communicate.save(tmp_mp3)
     except Exception as e:
         log.exception("❌ edge-tts falló: %s", e)
